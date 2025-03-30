@@ -8,12 +8,11 @@
 <script src="squeakjs/dist/squeak_bundle.js"></script>
 <script>
     function runDemo(imageName) {
-        SqueakJS.runSqueak("squeakjs-1.0.4.image", sqCanvas, {
-            files: ["squeakjs-1.0.4.changes"],
-            swapButtons: true,
-            header: sqText,
+        SqueakJS.runSqueak("images/Squeak6.0.zip", sqCanvas, {
             spinner: sqSpinner,
-            appName: "SqueakJS",
+            appName: "Squeak 6.0",
+            embedded: true, // use canvas as is
+            wizard: false,  // skip the Welcome Wizard
         });
     }
     function runSqueak(imageName) {
@@ -234,13 +233,15 @@
         <em>Beware that the server needs to allow script access via <a href="http://enable-cors.org/server.html" target="_blank">CORS</a>.</em>
         <br>Here are a few examples:
         <ul>
-        <li>Squeak 1.13 (1996) <a href="#url=https://freudenbergs.de/vanessa/squeakjs&files=[Squeak1.13u.image,Squeak1.13u.changes,SqueakV1.sources]&swapButtons=true">link</a></li>
-        <li>Squeak 2.8 (2000) <a href="#url=https://freudenbergs.de/vanessa/squeakjs&files=[Squeak2.8.image,Squeak2.8.changes,SqueakV2.sources]&swapButtons=true">link</a></li>
-        <li>Squeak 3.8 (2006) <a href="#url=https://freudenbergs.de/vanessa/squeakjs&files=[Squeak3.8.1-6747full.image,Squeak3.8.1-6747full.changes,SqueakV3.sources]&swapButtons=true">link</a></li>
-        <li>Squeak 3.9 (2008) <a href="#url=https://freudenbergs.de/vanessa/squeakjs&files=[Squeak3.9.1-final-7075.image,Squeak3.9.1-final-7075.changes,SqueakV39.sources]&swapButtons=true">link</a></li>
-        <li>Squeak 4.5 (2014) <a href="#url=https://freudenbergs.de/vanessa/squeakjs&files=[Squeak4.5-13680.image,Squeak4.5-13680.changes,SqueakV41.sources]">link</a></li>
-        <li>Squeak 5.0 (2015) <a href="#url=http://files.squeak.org/5.0/&zip=[Squeak5.0-15113.zip,SqueakV50.sources.zip]">link</a></li>
-        <li>Squeak 5.3 64 bit (2020) <a href="#url=https://freudenbergs.de/vanessa/squeakjs&zip=[Squeak5.3-19452-64bit.zip,SqueakV50.sources.zip]&wizard=false">link</a></li>
+        <li>Squeak 1.13 (1996) <a href="#url=images&zip=Squeak1.13u.zip&swapButtons=true">link</a></li>
+        <li>Squeak 2.8 (2000) <a href="#url=images&zip=Squeak2.8.zip&swapButtons=true">link</a></li>
+        <li>Squeak 3.8 (2006) <a href="#url=images&zip=Squeak3.8.1.zip&swapButtons=true">link</a></li>
+        <li>Squeak 3.9 (2008) <a href="#url=images&zip=Squeak3.9.1.zip&swapButtons=true">link</a></li>
+        <li>Squeak 4.5 (2014) <a href="#url=images&zip=Squeak4.5.zip">link</a></li>
+        <li>Squeak 5.0 (2015) <a href="#url=images&zip=Squeak5.0.zip">link</a></li>
+        <li>Squeak 5.3 (2020) <a href="#url=images&zip=Squeak5.3.zip&wizard=false">link</a></li>
+        <li>Squeak 6.0 (2024) <a href="#url=images&zip=Squeak6.0.zip&wizard=false">link</a></li>
+        <li>Mini + JSBridge <a href="#url=images&zip=SqueakJS.zip&swapButtons=true">link</a></li>
         </ul>
         On the first run these will be stored locally. Subsequent starts are faster.
 
