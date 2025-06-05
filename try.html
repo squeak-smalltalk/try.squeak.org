@@ -8,10 +8,19 @@
 <script src="squeakjs/dist/squeak_bundle.js"></script>
 <script>
     function runDemo(imageName) {
+        function onResize() {
+            if (sqCanvas.width === sqCanvas.offsetWidth &&
+                sqCanvas.height === sqCanvas.offsetHeight) return;
+            sqCanvas.width = sqCanvas.offsetWidth;
+            sqCanvas.height = sqCanvas.offsetHeight;
+        }
+        window.addEventListener("resize", onResize, false);
+        window.addEventListener("orientationchange", onResize, false);
+        onResize();
         SqueakJS.runSqueak("images/Squeak6.0.zip", sqCanvas, {
             spinner: sqSpinner,
             appName: "Squeak 6.0",
-            embedded: true, // use canvas as is
+            embedded: true, // we manage canvas resizing ourselves
             wizard: false,  // skip the Welcome Wizard
         });
     }
@@ -215,8 +224,10 @@
 </script>
 </head>
 <body>
-    <canvas id="sqCanvas" width="800" height="600"></canvas>
-    <div id="sqSpinner"><div></div></div>
+    <div id="screen">
+        <canvas id="sqCanvas"></canvas>
+        <div id="sqSpinner"><div></div></div>
+    </div>
     <div id="sqText">
         <h1></h1>
 	<p>This page gives you a glimpse of <a href="http://squeak.org/" target="_blank">Squeak</a> without installing anything. It is using
