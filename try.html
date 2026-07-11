@@ -32,7 +32,7 @@
             .replace(/\.zip$/, "")
             .replace(/\.image$/, "")
             .replace(/-(32|64)bit$/, "")
-            .replace(/(?<=\d+\.\d+)-\d{4,}/, "")
+            .replace(/(\d+\.\d+)-\d{4,}/, "$1")
             .replace(/^Squeak(\d+\.\d+)(\.\d+)?$/, "Squeak $1");
         if (imageName) {
             sqVersion.innerText = trimVersion(imageName);
@@ -41,7 +41,7 @@
         }
         SqueakJS.runSqueak(imageName, sqCanvas, {
             spinner: sqSpinner,
-            appName: imageName && imageName.replace(/.*\//, "").replace(/\.image$/, ""),
+            appName: imageName && trimVersion(imageName),
             argv: [],  // so that we can add further arguments for navigateToReleaseNotes later
             embedded: true, // we manage canvas resizing ourselves
             wizard: false,  // skip the Welcome Wizard
