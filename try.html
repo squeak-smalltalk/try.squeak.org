@@ -7,6 +7,15 @@
 <link rel="stylesheet" href="try.css">
 <script src="squeakjs/dist/squeak_bundle.js"></script>
 <script>
+    /**
+     * When replacing the demo image with a new version, follow these steps:
+     * * Upload the new bundle
+     * * Update this demoImage variable
+     * * Change the sqVersion text below to the new version
+     * * Add a link to the new version in the list of links further below
+     */
+    const demoImage = "images/Squeak6.0.zip";
+
     function runDemo(imageName) {
         function onResize() {
             if (sqCanvas.width === sqCanvas.offsetWidth &&
@@ -17,11 +26,27 @@
         window.addEventListener("resize", onResize, false);
         window.addEventListener("orientationchange", onResize, false);
         onResize();
-        SqueakJS.runSqueak("images/Squeak6.0.zip", sqCanvas, {
+        const sqVersion = document.getElementById("sqVersion");
+        const trimVersion = (v) => v
+            .replace(/.*\//, "")
+            .replace(/\.zip$/, "")
+            .replace(/\.image$/, "")
+            .replace(/-(32|64)bit$/, "")
+            .replace(/(?<=\d+\.\d+)-\d{4,}/, "")
+            .replace(/^Squeak(\d+\.\d+)(\.\d+)?$/, "Squeak $1");
+        if (imageName) {
+            sqVersion.innerText = trimVersion(imageName);
+        } else if (location.hash) {
+            sqVersion.innerText = "Squeak"; // version will be determined after image is loaded
+        }
+        SqueakJS.runSqueak(imageName, sqCanvas, {
             spinner: sqSpinner,
-            appName: "Squeak 6.0",
+            appName: imageName && imageName.replace(/.*\//, "").replace(/\.image$/, ""),
             embedded: true, // we manage canvas resizing ourselves
             wizard: false,  // skip the Welcome Wizard
+            onStart: function(vm, display, options) {
+                sqVersion.innerText = trimVersion(vm.image.name);
+            },
         });
     }
     function runSqueak(imageName) {
@@ -176,11 +201,12 @@
     }
     window.onload = function() {
         // if we have an image or zip in hash then we run Squeak with the options provided in the url
-        if ((location.hash || location.search).match(/(\.image(\W|$)|\Wzip=)/)) {
+        if ((location.hash || location.search).match(/(\.image(\W|$)|\Wzip=)/)
+            && !(location.hash || location.search).match(/(\W|^)demo(\W|$)/)) {
             return runSqueak();
         }
         // otherwise we run the demo ...
-        runDemo();
+        runDemo((location.hash || location.search) === "" ? demoImage : undefined);
         // ... and generate the text to display
         var links = document.getElementsByTagName("a");
         for (var i = 0; i < links.length; i++) {
@@ -236,7 +262,7 @@
         <p>It is quite slow compared to <a href="http://www.squeak.org/downloads" target="_blank">native Squeak</a>,
         because this is executing a Squeak Virtual Machine inside a JavaScript Virtual Machine.</p>
 
-    	<p>Above you see Squeak 6.0. You can try older versions below.</p>
+    	<p>Above you see <span id="sqVersion">Squeak 6.0</span>. You can try older versions below.</p>
 
         <h2>Other Squeak images</h2>
         You can try your own Squeak images by dropping them into this page.
