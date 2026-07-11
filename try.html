@@ -42,10 +42,14 @@
         SqueakJS.runSqueak(imageName, sqCanvas, {
             spinner: sqSpinner,
             appName: imageName && imageName.replace(/.*\//, "").replace(/\.image$/, ""),
+            argv: [],  // so that we can add further arguments for navigateToReleaseNotes later
             embedded: true, // we manage canvas resizing ourselves
             wizard: false,  // skip the Welcome Wizard
             onStart: function(vm, display, options) {
                 sqVersion.innerText = trimVersion(vm.image.name);
+                if ((location.search || location.hash).match(/\WnavigateToReleaseNotes(\W|$)/)) {
+                    patchSqueakNavigateToReleaseNotes(vm, options);
+                }
             },
         });
     }
@@ -53,14 +57,18 @@
         // Squeak.debugFiles = true;
         sqText.style.display = "none";
         sqCanvas.style.display = "block";
-        SqueakJS.runSqueak(imageName, sqCanvas,{
+        SqueakJS.runSqueak(imageName, sqCanvas, {
             spinner: sqSpinner,
             appName: imageName && imageName.replace(/.*\//, "").replace(/\.image$/, ""),
+            argv: [],  // so that we can add further arguments for navigateToReleaseNotes later
             fullscreen: true,
             onStart: function(vm, display, options) {
                 // debugger
                 // vm.breakOn("FileDirectory class>>activeDirectoryClass");
                 // vm.breakOnMessageNotUnderstood = true;
+                if ((location.search || location.hash).match(/\WnavigateToReleaseNotes(\W|$)/)) {
+                    patchSqueakNavigateToReleaseNotes(vm, options);
+                }
             },
             onQuit: function(vm, display, options) {
                 display.showBanner(SqueakJS.appName + " stopped.");
@@ -70,6 +78,58 @@
                 }, 0);
             },
         });
+    }
+    function patchSqueakNavigateToReleaseNotes(vm, options) {
+        const [, version] = vm.image.name.match(/Squeak(\d+\.\d)/) || [, null];
+        const script = smalltalk`
+["Backward-compatible from Squeak 5.1 to Squeak 6.1"
+| version window helpBrowser topic tree |
+version := ${version}.
+window := (SystemWindow windowsIn: Project current world satisfying: [:w | w model isKindOf: HelpBrowser])
+    ifEmpty: [self error: 'No HelpBrowser window found']
+    ifNotEmpty: [:windows | windows first].
+helpBrowser := window model.
+topic := helpBrowser rootTopic subtopics detect: [:t | t title = 'Release Notes'].
+tree := window findA: PluggableTreeMorph.
+tree items
+    detect: [:ea | ea contents = topic title]
+    ifFound: [:morph | tree toggleExpandedState: morph]
+    ifNone: [].
+version ifNotNil:
+    [helpBrowser currentTopic: (topic subtopics detect: [:t | t title endsWith: version]); currentParentTopic: topic.
+    helpBrowser changed: #currentTopic]]
+        future
+            on: Error do: [:ex | FileStream stdout cr; nextPutAll: 'Failed to navigate to release notes: ' , ex; flush].
+`;
+        const argv = options.argv;
+        if (argv.length < 3) {
+            if (argv.length < 1) argv[0] = "squeakjs";
+            if (argv.length < 2) argv[1] = vm.image.name;
+            argv[2] = "--doit";
+        }
+        if (argv[2] === "--doit" || argv.length < 3) {
+            if (argv.length < 3) argv[3] = "";
+            argv[3] = `${script}\n${argv[3]}`;
+        } else {
+            console.warn("navigateToReleaseNotes ignored because conflicting argv were provided");
+        }
+    }
+    function smalltalk(strings, ...values) {
+        let result = strings.raw[0];
+        for (let i = 0; i < values.length; i++) {
+            result += toSmalltalkLiteral(values[i]);
+            result += strings.raw[i + 1];
+        }
+        return result;
+    }
+    function toSmalltalkLiteral(value) {
+        if (value === null || value === undefined) return "nil";
+        switch (typeof value) {
+            case "string":
+                return `'${value.replaceAll("'", "''")}'`;
+            default:
+                return String(value);
+        }
     }
     function importItems(items) {
         var entries = [];
