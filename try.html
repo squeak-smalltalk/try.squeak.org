@@ -89,17 +89,23 @@ window := (SystemWindow windowsIn: Project current world satisfying: [:w | w mod
     ifEmpty: [self error: 'No HelpBrowser window found']
     ifNotEmpty: [:windows | windows first].
 helpBrowser := window model.
-topic := helpBrowser rootTopic subtopics detect: [:t | t title = 'Release Notes'].
-tree := window findA: PluggableTreeMorph.
-tree items
-    detect: [:ea | ea contents = topic title]
-    ifFound: [:morph | tree toggleExpandedState: morph]
-    ifNone: [].
-version ifNotNil:
-    [helpBrowser currentTopic: (topic subtopics detect: [:t | t title endsWith: version]); currentParentTopic: topic.
-    helpBrowser changed: #currentTopic]]
-        future
-            on: Error do: [:ex | FileStream stdout cr; nextPutAll: 'Failed to navigate to release notes: ' , ex; flush].
+topic := helpBrowser rootTopic subtopics detect: [:t | t title asString asLowercase = 'What is New?' asLowercase]. "Squeak 6.1"
+topic
+    ifNotNil:
+        [helpBrowser currentTopic: topic.
+        helpBrowser changed: #currentTopic]
+    ifNil:
+        [topic := helpBrowser rootTopic subtopics detect: [:t | t title = 'Release Notes'].
+        tree := window findA: PluggableTreeMorph.
+        tree items
+            detect: [:ea | ea contents = topic title]
+            ifFound: [:morph | tree toggleExpandedState: morph]
+            ifNone: [].
+        version ifNotNil:
+            [helpBrowser currentTopic: (topic subtopics detect: [:t | t title endsWith: version]); currentParentTopic: topic.
+            helpBrowser changed: #currentTopic]]]
+    future
+        on: Error do: [:ex | FileStream stdout cr; nextPutAll: 'Failed to navigate to release notes: ' , ex; flush].
 `;
         const argv = options.argv;
         if (argv.length < 3) {
