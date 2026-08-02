@@ -15,6 +15,14 @@
      * * Add a link to the new version in the list of links further below
      */
     const demoImage = "images/Squeak6.0.zip";
+    const zipCacheRevisionKey = "trySqueak.zipCacheRevisions";
+    // See https://github.com/squeak-smalltalk/try.squeak.org/pull/2 - if the user has visited try.squeak.org, the new release notes and --doit shim would otherwise be missing.
+    const zipCacheRevisions = {
+        "/Squeak4.5.zip": "release-notes-v1",
+        "/Squeak5.0.zip": "release-notes-v1",
+        "/Squeak5.3.zip": "release-notes-v1",
+        "/Squeak6.0.zip": "release-notes-v1",
+    };
 
     function runDemo(imageName) {
         function onResize() {
@@ -262,10 +270,122 @@ topic
         if (imgList.length) images.innerHTML = "<p>Select a local image to run:</p><ul>" + imgList.sort(fsort).join("") + "</ul>";
         else images.innerHTML = "<ul>[Once you have dropped local images to this page they will be listed here.]</ul>"
     }
+    function deleteCachedZips(paths, thenDo) {
+        let finished = false;
+        let openRequest;
+
+        function finish(success) {
+            if (finished) return;
+            finished = true;
+            thenDo(success);
+        }
+
+        if (!window.indexedDB) {
+            finish(true);
+            return;
+        }
+
+        try {
+            openRequest = indexedDB.open("squeak");
+        } catch (error) {
+            console.warn("Could not open Squeak cache", error);
+            finish(false);
+            return;
+        }
+
+        openRequest.onblocked = function () {
+            console.warn("Squeak cache migration blocked by another tab");
+            finish(false);
+        };
+
+        openRequest.onerror = function () {
+            console.warn("Could not open Squeak cache", openRequest.error);
+            finish(false);
+        };
+
+        openRequest.onsuccess = function () {
+            const db = openRequest.result;
+
+            // The request may have succeeded after onblocked already made us
+            // abandon this migration. Do not perform a late deletion.
+            if (finished) {
+                db.close();
+                return;
+            }
+
+            let transaction;
+
+            try {
+                transaction = db.transaction("files", "readwrite");
+                const store = transaction.objectStore("files");
+
+                for (const path of paths) {
+                    store.delete(path);
+                }
+            } catch (error) {
+                console.warn("Could not invalidate Squeak ZIP cache", error);
+                db.close();
+                finish(false);
+                return;
+            }
+
+            transaction.oncomplete = function () {
+                db.close();
+                finish(true);
+            };
+
+            transaction.onabort = function () {
+                console.warn("Squeak ZIP cache migration aborted", transaction.error);
+                db.close();
+                finish(false);
+            };
+
+            transaction.onerror = function () {
+                // Normally followed by onabort.
+                console.warn("Squeak ZIP cache migration failed", transaction.error);
+            };
+        };
+    }
+    function migrateZipCaches(thenDo) {
+        let installedRevisions = {};
+        try {
+            installedRevisions = JSON.parse(
+                Squeak.Settings[zipCacheRevisionKey] || "{}"
+            );
+        } catch {
+            installedRevisions = {};
+        }
+
+        const stalePaths = Object.entries(zipCacheRevisions)
+            .filter(([path, revision]) =>
+                installedRevisions[path] !== revision &&
+                Squeak.fileExists(path)
+            )
+            .map(([path]) => path);
+
+        if (stalePaths.length === 0) {
+            for (const [path, revision] of Object.entries(zipCacheRevisions)) {
+                installedRevisions[path] = revision;
+            }
+            Squeak.Settings[zipCacheRevisionKey] =
+                JSON.stringify(installedRevisions);
+
+            thenDo();
+            return;
+        }
+
+        deleteCachedZips(stalePaths, function (success) {
+            if (success) {
+                Squeak.Settings[zipCacheRevisionKey] =
+                    JSON.stringify(installedRevisions);
+            }
+            thenDo();
+        });
+    }
     window.onhashchange = function() {
         window.location.reload();
     }
-    window.onload = function() {
+    function start() {
         // if we have an image or zip in hash then we run Squeak with the options provided in the url
         if ((location.hash || location.search).match(/(\.image(\W|$)|\Wzip=)/)
             && !(location.hash || location.search).match(/(\W|^)demo(\W|$)/)) {
@@ -312,6 +432,9 @@ topic
             drop.style.borderColor = "#0F0";
             importFiles(evt.target.files);
         };
+    }
+    window.onload = function() {
+        migrateZipCaches(start);
     }
 </script>
 </head>
