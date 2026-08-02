@@ -7,6 +7,15 @@
 <link rel="stylesheet" href="try.css">
 <script src="squeakjs/dist/squeak_bundle.js"></script>
 <script>
+    /**
+     * When replacing the demo image with a new version, follow these steps:
+     * * Upload the new bundle
+     * * Update this demoImage variable
+     * * Change the sqVersion text below to the new version
+     * * Add a link to the new version in the list of links further below
+     */
+    const demoImage = "images/Squeak6.0.zip";
+
     function runDemo(imageName) {
         function onResize() {
             if (sqCanvas.width === sqCanvas.offsetWidth &&
@@ -17,25 +26,49 @@
         window.addEventListener("resize", onResize, false);
         window.addEventListener("orientationchange", onResize, false);
         onResize();
-        SqueakJS.runSqueak("images/Squeak6.0.zip", sqCanvas, {
+        const sqVersion = document.getElementById("sqVersion");
+        const trimVersion = (v) => v
+            .replace(/.*\//, "")
+            .replace(/\.zip$/, "")
+            .replace(/\.image$/, "")
+            .replace(/-(32|64)bit$/, "")
+            .replace(/(\d+\.\d+)-\d{4,}/, "$1")
+            .replace(/^Squeak(\d+\.\d+)(\.\d+)?$/, "Squeak $1");
+        if (imageName) {
+            sqVersion.innerText = trimVersion(imageName);
+        } else if (location.hash) {
+            sqVersion.innerText = "Squeak"; // version will be determined after image is loaded
+        }
+        SqueakJS.runSqueak(imageName, sqCanvas, {
             spinner: sqSpinner,
-            appName: "Squeak 6.0",
+            appName: imageName && trimVersion(imageName),
+            argv: [],  // so that we can add further arguments for navigateToReleaseNotes later
             embedded: true, // we manage canvas resizing ourselves
             wizard: false,  // skip the Welcome Wizard
+            onStart: function(vm, display, options) {
+                sqVersion.innerText = trimVersion(vm.image.name);
+                if ((location.search || location.hash).match(/\WnavigateToReleaseNotes(\W|$)/)) {
+                    patchSqueakNavigateToReleaseNotes(vm, options);
+                }
+            },
         });
     }
     function runSqueak(imageName) {
         // Squeak.debugFiles = true;
         sqText.style.display = "none";
         sqCanvas.style.display = "block";
-        SqueakJS.runSqueak(imageName, sqCanvas,{
+        SqueakJS.runSqueak(imageName, sqCanvas, {
             spinner: sqSpinner,
             appName: imageName && imageName.replace(/.*\//, "").replace(/\.image$/, ""),
+            argv: [],  // so that we can add further arguments for navigateToReleaseNotes later
             fullscreen: true,
             onStart: function(vm, display, options) {
                 // debugger
                 // vm.breakOn("FileDirectory class>>activeDirectoryClass");
                 // vm.breakOnMessageNotUnderstood = true;
+                if ((location.search || location.hash).match(/\WnavigateToReleaseNotes(\W|$)/)) {
+                    patchSqueakNavigateToReleaseNotes(vm, options);
+                }
             },
             onQuit: function(vm, display, options) {
                 display.showBanner(SqueakJS.appName + " stopped.");
@@ -45,6 +78,64 @@
                 }, 0);
             },
         });
+    }
+    function patchSqueakNavigateToReleaseNotes(vm, options) {
+        const [, version] = vm.image.name.match(/Squeak(\d+\.\d)/) || [, null];
+        const script = smalltalk`
+["Backward-compatible from Squeak 5.1 to Squeak 6.1"
+| version window helpBrowser topic tree |
+version := ${version}.
+window := (SystemWindow windowsIn: Project current world satisfying: [:w | w model isKindOf: HelpBrowser])
+    ifEmpty: [self error: 'No HelpBrowser window found']
+    ifNotEmpty: [:windows | windows first].
+helpBrowser := window model.
+topic := helpBrowser rootTopic subtopics detect: [:t | t title asString asLowercase = 'What is New?' asLowercase] ifNone: [nil]. "Squeak 6.1"
+topic
+    ifNotNil:
+        [helpBrowser currentTopic: topic.
+        helpBrowser changed: #currentTopic]
+    ifNil:
+        [topic := helpBrowser rootTopic subtopics detect: [:t | t title = 'Release Notes'].
+        tree := window findA: PluggableTreeMorph.
+        tree items
+            detect: [:ea | ea contents = topic title]
+            ifFound: [:morph | tree toggleExpandedState: morph]
+            ifNone: [].
+        version ifNotNil:
+            [helpBrowser currentTopic: (topic subtopics detect: [:t | t title endsWith: version]); currentParentTopic: topic.
+            helpBrowser changed: #currentTopic]]]
+    future
+        on: Error do: [:ex | FileStream stdout cr; nextPutAll: 'Failed to navigate to release notes: ' , ex; flush].
+`;
+        const argv = options.argv;
+        if (argv.length < 3) {
+            if (argv.length < 1) argv[0] = "squeakjs";
+            if (argv.length < 2) argv[1] = vm.image.name;
+            argv[2] = "--doit";
+        }
+        if (argv[2] === "--doit" || argv.length < 3) {
+            if (argv.length < 3) argv[3] = "";
+            argv[3] = `${script}\n${argv[3]}`;
+        } else {
+            console.warn("navigateToReleaseNotes ignored because conflicting argv were provided");
+        }
+    }
+    function smalltalk(strings, ...values) {
+        let result = strings.raw[0];
+        for (let i = 0; i < values.length; i++) {
+            result += toSmalltalkLiteral(values[i]);
+            result += strings.raw[i + 1];
+        }
+        return result;
+    }
+    function toSmalltalkLiteral(value) {
+        if (value === null || value === undefined) return "nil";
+        switch (typeof value) {
+            case "string":
+                return `'${value.replaceAll("'", "''")}'`;
+            default:
+                return String(value);
+        }
     }
     function importItems(items) {
         var entries = [];
@@ -176,11 +267,12 @@
     }
     window.onload = function() {
         // if we have an image or zip in hash then we run Squeak with the options provided in the url
-        if ((location.hash || location.search).match(/(\.image(\W|$)|\Wzip=)/)) {
+        if ((location.hash || location.search).match(/(\.image(\W|$)|\Wzip=)/)
+            && !(location.hash || location.search).match(/(\W|^)demo(\W|$)/)) {
             return runSqueak();
         }
         // otherwise we run the demo ...
-        runDemo();
+        runDemo((location.hash || location.search) === "" ? demoImage : undefined);
         // ... and generate the text to display
         var links = document.getElementsByTagName("a");
         for (var i = 0; i < links.length; i++) {
@@ -236,7 +328,7 @@
         <p>It is quite slow compared to <a href="http://www.squeak.org/downloads" target="_blank">native Squeak</a>,
         because this is executing a Squeak Virtual Machine inside a JavaScript Virtual Machine.</p>
 
-    	<p>Above you see Squeak 6.0. You can try older versions below.</p>
+    	<p>Above you see <span id="sqVersion">Squeak 6.0</span>. You can try older versions below.</p>
 
         <h2>Other Squeak images</h2>
         You can try your own Squeak images by dropping them into this page.
@@ -248,10 +340,16 @@
         <li>Squeak 2.8 (2000) <a href="#url=images&zip=Squeak2.8.zip&swapButtons=true">link</a></li>
         <li>Squeak 3.8 (2006) <a href="#url=images&zip=Squeak3.8.1.zip&swapButtons=true">link</a></li>
         <li>Squeak 3.9 (2008) <a href="#url=images&zip=Squeak3.9.1.zip&swapButtons=true">link</a></li>
+        <li>Squeak 4.2 (2011) <a href="#url=images&zip=Squeak4.2.zip">link</a></li>
+        <li>Squeak 4.4 (2012) <a href="#url=images&zip=Squeak4.4.zip">link</a></li>
         <li>Squeak 4.5 (2014) <a href="#url=images&zip=Squeak4.5.zip">link</a></li>
+        <li>Squeak 4.6 (2014) <a href="#url=images&zip=Squeak4.6.zip">link</a></li>
         <li>Squeak 5.0 (2015) <a href="#url=images&zip=Squeak5.0.zip">link</a></li>
+        <li>Squeak 5.1 (2016) <a href="#url=images&zip=Squeak5.1.zip">link</a></li>
+        <li>Squeak 5.2 (2018) <a href="#url=images&zip=Squeak5.2.zip">link</a></li>
         <li>Squeak 5.3 (2020) <a href="#url=images&zip=Squeak5.3.zip&wizard=false">link</a></li>
         <li>Squeak 6.0 (2024) <a href="#url=images&zip=Squeak6.0.zip&wizard=false">link</a></li>
+        <li>Squeak 6.0 - high-DPI (2024) <a href="#url=images&zip=Squeak6.0.zip&highdpi&wizard=false">link</a></li>
         <li>VMMaker (2025) <a href="#url=images&zip=VMMaker.zip">link</a></li>
         <li>Mini + JSBridge <a href="#url=images&zip=SqueakJS.zip&swapButtons=true">link</a></li>
         </ul>

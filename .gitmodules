@@ -1,3 +1,5 @@
 [submodule "squeakjs"]
 	path = squeakjs
-	url = https://github.com/codefrau/squeakjs.git
+	#url = https://github.com/codefrau/squeakjs.git
+	# temporary workaround for https://github.com/codefrau/SqueakJS/pull/194
+	url = https://github.com/LinqLover/squeakjs.git
