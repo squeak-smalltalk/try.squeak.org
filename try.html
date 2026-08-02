@@ -89,7 +89,7 @@ window := (SystemWindow windowsIn: Project current world satisfying: [:w | w mod
     ifEmpty: [self error: 'No HelpBrowser window found']
     ifNotEmpty: [:windows | windows first].
 helpBrowser := window model.
-topic := helpBrowser rootTopic subtopics detect: [:t | t title asString asLowercase = 'What is New?' asLowercase]. "Squeak 6.1"
+topic := helpBrowser rootTopic subtopics detect: [:t | t title asString asLowercase = 'What is New?' asLowercase] ifNone: [nil]. "Squeak 6.1"
 topic
     ifNotNil:
         [helpBrowser currentTopic: topic.
