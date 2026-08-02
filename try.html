@@ -376,8 +376,10 @@ topic
 
         deleteCachedZips(stalePaths, function (success) {
             if (success) {
-                Squeak.Settings[zipCacheRevisionKey] =
-                    JSON.stringify(installedRevisions);
+                for (const [path, revision] of Object.entries(zipCacheRevisions)) {
+                    installedRevisions[path] = revision;
+                }
+                Squeak.Settings[zipCacheRevisionKey] = JSON.stringify(installedRevisions);
             }
             thenDo();
         });
